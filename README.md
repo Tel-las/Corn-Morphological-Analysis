@@ -101,6 +101,8 @@ The complete analysis workflow is documented in the R Markdown file, providing r
 
 Portuguese Plant Germplasm Bank (BPGV) - Three decades of morphological characterization data from regional corn populations.
 
+![Basket with maize ears collected from portuguese lanraces](maize_basket.jpg)
+
 ---
 
 *This project demonstrates the practical application of statistical modeling in agricultural research, specifically showing how morphological descriptors can reliably predict plant characteristics in corn germplasm collections.*

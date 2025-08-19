@@ -1,0 +1,196 @@
+---
+title: "Maize Analysis English"
+author: "Miguel Barros (pg42877), Tiago Machado (pg42884), Tiago Silva (pg42885)"
+date: "01/03/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+body {text-align: justify}
+div.fontdoc {font-family: georgia;}
+</style>
+<div class = "fontdoc">
+<font size="4">
+
+## **Introduction**
+
+**CME** - Ear length in $cm$\
+**NTF** - Total number of leaves\
+**ARF** - Leaf area $cm^2$\
+**ALP** - Plant height in $cm$\
+**PMG** - Thousand grain weight in $g$\
+**ALC** - Harvest site altitude in $m$\
+**CDE** - Endosperm color\
+**NTN** - Total number of nodes\
+**FAS** - Fasciation\
+
+The dataset used consists of mean values from regional corn populations, obtained over 3 decades through morphological characterization activities of the Portuguese Plant Germplasm Bank (BPGV). The variables in this dataset correspond to descriptors used for plant characterization before harvest, which corresponds to grain maturation, with the exception of the ALC descriptor, which corresponds to a passport descriptor obtained by technicians who collect this germplasm. We can classify the descriptors obtained from the characterization effort into 3 components: vegetative (**ALP**, **NTN**), foliar (**NTF**, **ARF**), productive (**CME**, **PMG**), and intrinsic (**FAS**, **CDE**).
+
+Thus, for performing linear regression, we selected **ALP** as the dependent variable, since morphological studies have proven an interdependence between the various types of descriptors presented here. Therefore, we propose to demonstrate the association between these variables through the creation of a linear regression model for plant height using this dataset.
+
+## **Import and Factorization**
+```{r Import and factorization}
+#Import the dataset
+library(readxl)
+data_milho <- read_excel("data_milho.xlsx")
+
+#Factorize the variables
+data_milho$CDE <-factor(data_milho$CDE,c("1", "2", "3", "4", "5"),labels=c("White", "Cream", "Light-yellow", "Yellow", "Orange"))
+
+data_milho$FAS <-factor(data_milho$FAS,c("0", "1"),labels=c("Absent", "Present"))
+```
+
+## **Preliminary Analysis**
+```{r Preliminary analysis}
+#Preliminary dataset information
+str(data_milho)
+#Does our dataset have missing data?
+any(is.na(data_milho))
+```
+
+The dataset contains data from 566 populations, distributed across 9 variables explained above, with 6 continuous variables and 2 categorical variables. Within the categorical variables, the **CDE** variable has 5 levels (endosperm colors) and the **FAS** variable is a binary variable (Presence/Absence of fasciation).\
+The dataset does not contain missing data (NA).
+
+## **Exploratory Data Analysis**
+```{r Exploratory data analysis}
+library(summarytools)
+dfSummary(data_milho, na.col = F, valid.col = F)
+```
+
+The descriptive statistics for the descriptors used are shown above. Appealing to the Central Limit Theorem, we will assume normality of the distributions.
+
+```{r Exploratory data analysis_2}
+boxplot(ALP~CDE, data = data_milho)
+boxplot(ALP~FAS, data = data_milho)
+
+#ANOVA analysis between the dependent variable and the categorical variable CDE
+#Verify homogeneity of variances
+fligner.test(ALP~CDE, data = data_milho)
+#Assuming normality
+model = aov(ALP~CDE, data = data_milho)
+summary(model)
+TukeyHSD(model)
+
+#ANOVA analysis between the dependent variable and the categorical variable FAS
+#Verify homogeneity of variances
+fligner.test(ALP~FAS, data = data_milho)
+#Assuming normality
+model = aov(ALP~FAS, data = data_milho)
+summary(model)
+```
+
+Since the dependent variable we intend to study corresponds to **ALP**, we chose to analyze the distribution of this variable against the categorical variables.\
+We observe the occurrence of outliers in the **ALP**/**CDE** box plots for the 'White', 'Cream', and 'Light-yellow' factors. Among all, the 'Orange' factor presents itself as the one with the lowest mean relative to **ALP**, also being the factor with the smallest number of individuals (3.9%).\
+The ANOVA analysis results indicate that the differences between the 'Light-Yellow', 'Yellow', and 'Orange' factors are not significant, as well as between the 'White' and 'Cream' factors, with all others being significant.\
+For the **FAS** variable, we verify that the ANOVA analysis does not reveal significant differences between its levels (Presence/Absence) and the dependent variable, which is observable in the **ALP**/**FAS** box plot.
+
+## **Correlations**
+```{r Correlations}
+#create dataset with only numeric variables
+data_milho_num <- data_milho
+data_milho_num$FAS <- NULL
+data_milho_num$CDE <- NULL
+
+#Correlations
+library(GGally)
+library(ggplot2)
+ggcorr(data_milho_num, geom="tile", label = T, label_alpha = F)
+```
+
+The correlations between continuous variables were computed using Pearson's correlation coefficient.\
+Defining correlations above 0.5 as relevant, we observe the occurrence of strong and positive correlations between the following descriptors:\
+
+**CME** - **NTF**, **ARF**, **ALP** and **NTN**\
+**NTF** - **CME**, **ARF**, **ALP**, **NTN**\
+**ARF** - **CME**, **NTF**, **ALP**, **NTN**\
+**ALP** - **CME**, **NTF**, **ARF**, **NTN**\
+
+We also observe lighter and positive correlations between the **PMG** descriptor and the vegetative and foliar descriptors that are strongly correlated among themselves.\
+A slight negative correlation is also verified between the **ALC** descriptor and all others.
+
+## **Linear Regression (Full-model)**
+```{r Linear regression (Full-model)}
+#Complete fit
+full.model <- lm(ALP ~., data = data_milho) 
+summary(full.model)
+
+#Test for multicollinearity
+car::vif(full.model)
+
+#Remove ARF
+data_milho$ARF <- NULL
+
+#New complete fit
+full.model <- lm(ALP ~., data = data_milho) 
+summary(full.model)
+
+#New test for multicollinearity
+car::vif(full.model)
+
+#Diagnostic measures
+#R² -> 1 (value tending to 1 implies that the predictor variables are well fitted in the model)
+#RSE -> 0 (A smaller value implies a smaller model error)
+
+```
+
+Performing the complete fit of the dependent variable **ALP** to a linear model with the remaining 8 variables from the dataset, we verify that the coefficients of variables **CME**, **NTF**, **ARF**, **PMG**, **NTN**, and the intercept are recognized as significant at a significance level of 0, and the 'Yellow' and 'Orange' levels of variable **CDE** at a significance level of 0.001. Thus, for the intercept and predictor variables, we can reject H₀ and accept the alternative hypothesis that there is a significant association between the predictor variables and the dependent variable.\
+
+The multicollinearity assumption was tested and it was discovered that the **ARF** variable had a GVIF > 10 value, which indicates a strong correlation of this variable with other independent variables, breaking this assumption. Therefore, the **ARF** variable was removed from the dataset and the model was recalculated.\
+The new model contained the same significance levels for the variables that remained, with the R² value decreasing slightly to 0.661.
+
+## **Stepwise Selection**
+```{r Stepwise selection}
+library(tidyverse)
+library(caret)
+library(leaps)
+library(MASS)
+
+step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
+summary(step.model)
+
+step.modelf <- stepAIC(full.model, direction = "forward", trace = FALSE)
+summary(step.modelf)
+
+step.modelb <- stepAIC(full.model, direction = "backward", trace = FALSE)
+summary(step.modelb)
+
+AIC(step.model)
+AIC(step.modelf)
+AIC(step.modelb)
+```
+
+We performed the stepwise selection method from the complete model fit, using the 'both', 'forward', and 'backward' methods. After comparing the AIC values of the 3 selections, we opted for the 'backward' method (lowest AIC). In this method, the coefficients of variables **CME**, **NTF**, **PMG**, **NTN**, and the intercept are considered significant at a significance level of 0, the 'Yellow' and 'Orange' levels of variable **CDE** at a significance level of 0.001, and the **FAS** variable at a significance level of 0.05. Thus, for the intercept and predictor variables, we can reject H₀ and accept the alternative hypothesis that there is a significant association between the predictor variables and the dependent variable.\
+The residual standard error takes the value of approximately 0.66, which we consider sufficiently significant to proceed with the regression.
+
+## **Conclusions**
+```{r Conclusions}
+#Evaluate residual normalization
+shapiro.test(residuals(step.modelb))
+
+#Residual standard error
+sigma(step.modelb)/mean(data_milho$ALP)
+
+#Diagnostic plots
+# Test for homoscedasticity assumption
+plot(step.modelb)
+
+#Model confidence interval
+confint(step.modelb)
+
+#Model ANOVA
+anova(step.modelb)
+```
+
+The normality assumption of residuals was verified through a Shapiro-Wilk test, obtaining a p-value > 0.05, thus proving the normality of residuals. The 95% confidence intervals for the intercept and predictor variables were computed.\
+
+The homoscedasticity assumption was tested using the residuals vs fitted values scatter plot. Since the dispersion does not present a conical shape, we consider this assumption satisfied.\
+
+The quality of the final linear model was assessed through the R-squared and Residual Standard Error metrics, obtaining a value of approximately 0.6689 for the first and an estimated error rate of 11% for the second.\
+Satisfying all requirements, we define as our final model **ALP** ~ **CME** + **NTF** + **PMG** + **CDE** + **NTN** + **FAS**, with the stepwise selection method only excluding the **ALC** variable. The ANOVA analysis of the final model supports these conclusions.\
+
+We conclude that from a set of morphological descriptors it is possible to establish linear regression models for plant height, with this model having utility from the perspective of eliminating missing data through its prediction using this model, on the datasets of regional corn populations conserved in the BPGV.
+</font>
